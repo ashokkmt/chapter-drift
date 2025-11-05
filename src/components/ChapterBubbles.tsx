@@ -1,19 +1,14 @@
 import * as d3 from "d3";
 import React, { useEffect, useRef } from "react";
-
-export interface ChapterData {
-  id: string;
-  name: string;
-  popularity: number;
-  region: string;
-}
+import { Chapter } from "@/types/owasp";
 
 interface Props {
-  data: ChapterData[];
+  data: Chapter[];
   searchQuery: string;
+  onChapterClick: (chapter: Chapter) => void;
 }
 
-interface Node extends ChapterData {
+interface Node extends Chapter {
   radius: number;
   x: number;
   y: number;
@@ -21,7 +16,8 @@ interface Node extends ChapterData {
   fy?: number | null;
 }
 
-export default function ChapterBubbles({ data, searchQuery }: Props) {
+
+export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,7 +100,12 @@ export default function ChapterBubbles({ data, searchQuery }: Props) {
       .attr("fill", (d) => colorScale(d.region) as string)
       .attr("fill-opacity", 0.85)
       .attr("stroke", "#111")
-      .attr("stroke-width", 2);
+      .attr("stroke-width", 2)
+      .style("cursor", "pointer")
+      .on("click", (event, d) => {
+        event.stopPropagation();
+        onChapterClick(d);
+      });
 
     // Add text labels
     nodeGroup
