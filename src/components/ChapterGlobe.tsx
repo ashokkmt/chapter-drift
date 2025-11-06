@@ -67,18 +67,18 @@ function ChapterNode({
       const viewPos = worldPos.clone().project(camera);
       const zDepth = viewPos.z; // -1 (front) to 1 (back)
       
-      // Scale based on depth: front = 1.0, back = 0.15
-      const depthScale = THREE.MathUtils.lerp(1.0, 0.15, (zDepth + 1) / 2);
-      const finalScale = depthScale * (hovered ? 1.2 : 1);
+      // Scale based on depth: front = 1.0, back = 0.2
+      const depthScale = THREE.MathUtils.lerp(1.0, 0.2, (zDepth + 1) / 2);
+      const finalScale = depthScale * (hovered ? 1.15 : 1);
       
       meshRef.current.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.1);
       
       // Text visibility and scale based on depth
       if (textRef.current) {
-        const textVisible = zDepth < 0.3; // Only show text when reasonably front-facing
+        const textVisible = zDepth < 0.4;
         textRef.current.visible = textVisible;
         if (textVisible) {
-          const textScale = Math.max(0.3, depthScale * 0.8);
+          const textScale = depthScale * 1;
           textRef.current.scale.set(textScale, textScale, textScale);
         }
         
@@ -99,33 +99,34 @@ function ChapterNode({
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered(true);
-          document.body.style.cursor = 'pointer';
+          document.body.style.cursor = "pointer";
         }}
         onPointerOut={() => {
           setHovered(false);
-          document.body.style.cursor = 'default';
+          document.body.style.cursor = "default";
         }}
       >
         <sphereGeometry args={[size, 32, 32]} />
         <meshStandardMaterial 
           color={color} 
           emissive={color}
-          emissiveIntensity={hovered ? 0.6 : 0.3}
+          emissiveIntensity={hovered ? 0.5 : 0.25}
           transparent
-          opacity={0.9}
+          opacity={0.85}
         />
       </mesh>
       
-      {/* Chapter Name Text */}
+      {/* Chapter Name Text - centered inside circle */}
       <Text
         ref={textRef}
-        position={[0, 0, size + 0.05]}
-        fontSize={0.35}
+        position={[0, 0, 0.1]}
+        fontSize={0.5}
         color="white"
         anchorX="center"
         anchorY="middle"
-        outlineWidth={0.02}
+        outlineWidth={0.03}
         outlineColor="#000000"
+        maxWidth={size * 1.8}
       >
         {chapter.name}
       </Text>
@@ -137,24 +138,29 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
   const globeRef = useRef<THREE.Group>(null);
   const controlsRef = useRef<any>(null);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
 
-  // Auto-rotation when not interacting
+  // Auto-rotation when not interacting or hovering
   useFrame((state, delta) => {
-    if (globeRef.current && !isInteracting) {
-      globeRef.current.rotation.y += delta * 0.1; // Slow rotation
+    if (globeRef.current && !isInteracting && !isHovering) {
+      globeRef.current.rotation.y += delta * 0.05; // Very slow rotation
     }
   });
 
   return (
     <>
-      <group ref={globeRef}>
+      <group 
+        ref={globeRef}
+        onPointerEnter={() => setIsHovering(true)}
+        onPointerLeave={() => setIsHovering(false)}
+      >
         {/* Main Globe - invisible but provides structure */}
-        <Sphere args={[5.2, 64, 64]}>
+        <Sphere args={[5, 64, 64]}>
           <meshStandardMaterial
             color="#0a0a0a"
             wireframe
             transparent
-            opacity={0.05}
+            opacity={0.03}
           />
         </Sphere>
 
@@ -172,20 +178,21 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
       </group>
 
       {/* Lighting */}
-      <ambientLight intensity={0.6} />
-      <pointLight position={[10, 10, 10]} intensity={1.2} />
-      <pointLight position={[-10, -10, -10]} intensity={0.6} />
-      <pointLight position={[0, 10, 0]} intensity={0.4} />
+      <ambientLight intensity={0.7} />
+      <pointLight position={[10, 10, 10]} intensity={1.5} />
+      <pointLight position={[-10, -10, -10]} intensity={0.7} />
+      <pointLight position={[0, 10, 0]} intensity={0.5} />
+      <pointLight position={[0, 0, 10]} intensity={0.8} />
 
       {/* Controls */}
       <OrbitControls
         ref={controlsRef}
         enablePan={false}
         enableZoom={true}
-        minDistance={10}
-        maxDistance={25}
-        rotateSpeed={0.6}
-        zoomSpeed={0.8}
+        minDistance={9}
+        maxDistance={22}
+        rotateSpeed={0.5}
+        zoomSpeed={0.7}
         onStart={() => setIsInteracting(true)}
         onEnd={() => setIsInteracting(false)}
       />
@@ -196,10 +203,10 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
 export default function ChapterGlobe({ data, onChapterClick }: Props) {
   // Memoize chapter nodes to prevent regeneration
   const chapterNodes = useMemo<ChapterNode[]>(() => {
-    const globeRadius = 5.5;
+    const globeRadius = 5;
     const sizeScale = (popularity: number) => {
-      // Larger base size for better visibility
-      return 0.3 + (popularity / 100) * 0.5;
+      // Much larger circles for better visibility
+      return 0.6 + (popularity / 100) * 0.6;
     };
 
     return data.map((chapter, index) => ({
@@ -213,7 +220,7 @@ export default function ChapterGlobe({ data, onChapterClick }: Props) {
   return (
     <div className="w-full h-full bg-background">
       <Canvas
-        camera={{ position: [0, 0, 14], fov: 50 }}
+        camera={{ position: [0, 0, 13], fov: 55 }}
         gl={{ antialias: true }}
       >
         <color attach="background" args={["#0a0a0a"]} />
