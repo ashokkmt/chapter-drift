@@ -58,7 +58,7 @@ function ChapterNode({
   const { camera } = useThree();
 
   useFrame(() => {
-    if (meshRef.current && textRef.current) {
+    if (meshRef.current) {
       // Calculate distance from camera (Z-axis in view space)
       const worldPos = new THREE.Vector3();
       meshRef.current.getWorldPosition(worldPos);
@@ -74,15 +74,17 @@ function ChapterNode({
       meshRef.current.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.1);
       
       // Text visibility and scale based on depth
-      const textVisible = zDepth < 0.3; // Only show text when reasonably front-facing
-      textRef.current.visible = textVisible;
-      if (textVisible) {
-        const textScale = Math.max(0.3, depthScale * 0.8);
-        textRef.current.scale.set(textScale, textScale, textScale);
+      if (textRef.current) {
+        const textVisible = zDepth < 0.3; // Only show text when reasonably front-facing
+        textRef.current.visible = textVisible;
+        if (textVisible) {
+          const textScale = Math.max(0.3, depthScale * 0.8);
+          textRef.current.scale.set(textScale, textScale, textScale);
+        }
+        
+        // Always face camera
+        textRef.current.quaternion.copy(camera.quaternion);
       }
-      
-      // Always face camera
-      textRef.current.quaternion.copy(camera.quaternion);
     }
   });
 
@@ -124,7 +126,6 @@ function ChapterNode({
         anchorY="middle"
         outlineWidth={0.02}
         outlineColor="#000000"
-        font="/fonts/inter-bold.woff"
       >
         {chapter.name}
       </Text>
@@ -133,45 +134,60 @@ function ChapterNode({
 }
 
 function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapterClick: (chapter: Chapter) => void }) {
-  const globeRef = useRef<THREE.Mesh>(null);
+  const globeRef = useRef<THREE.Group>(null);
+  const controlsRef = useRef<any>(null);
+  const [isInteracting, setIsInteracting] = useState(false);
+
+  // Auto-rotation when not interacting
+  useFrame((state, delta) => {
+    if (globeRef.current && !isInteracting) {
+      globeRef.current.rotation.y += delta * 0.1; // Slow rotation
+    }
+  });
 
   return (
     <>
-      {/* Main Globe - invisible but provides structure */}
-      <Sphere ref={globeRef} args={[5.2, 64, 64]}>
-        <meshStandardMaterial
-          color="#0a0a0a"
-          wireframe
-          transparent
-          opacity={0.05}
-        />
-      </Sphere>
+      <group ref={globeRef}>
+        {/* Main Globe - invisible but provides structure */}
+        <Sphere args={[5.2, 64, 64]}>
+          <meshStandardMaterial
+            color="#0a0a0a"
+            wireframe
+            transparent
+            opacity={0.05}
+          />
+        </Sphere>
 
-      {/* Chapter Nodes */}
-      {chapters.map((chapter) => (
-        <ChapterNode
-          key={chapter.id}
-          chapter={chapter}
-          position={chapter.position}
-          color={chapter.color}
-          size={chapter.size}
-          onClick={() => onChapterClick(chapter)}
-        />
-      ))}
+        {/* Chapter Nodes */}
+        {chapters.map((chapter) => (
+          <ChapterNode
+            key={chapter.id}
+            chapter={chapter}
+            position={chapter.position}
+            color={chapter.color}
+            size={chapter.size}
+            onClick={() => onChapterClick(chapter)}
+          />
+        ))}
+      </group>
 
       {/* Lighting */}
-      <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
-      <pointLight position={[-10, -10, -10]} intensity={0.5} />
+      <ambientLight intensity={0.6} />
+      <pointLight position={[10, 10, 10]} intensity={1.2} />
+      <pointLight position={[-10, -10, -10]} intensity={0.6} />
+      <pointLight position={[0, 10, 0]} intensity={0.4} />
 
       {/* Controls */}
       <OrbitControls
+        ref={controlsRef}
         enablePan={false}
         enableZoom={true}
         minDistance={10}
         maxDistance={25}
         rotateSpeed={0.6}
         zoomSpeed={0.8}
+        onStart={() => setIsInteracting(true)}
+        onEnd={() => setIsInteracting(false)}
       />
     </>
   );
