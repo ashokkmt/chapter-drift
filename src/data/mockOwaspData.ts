@@ -186,6 +186,166 @@ export const mockChapters: Chapter[] = [
     popularity: 67,
     description: "Cape Town chapter serving the South African security community.",
   },
+  
+  // Additional North America Chapters
+  {
+    id: "owasp-toronto",
+    name: "Toronto",
+    region: "North America",
+    popularity: 82,
+    description: "Toronto chapter serving Canada's largest tech hub.",
+    leaders: ["Tom Anderson"],
+  },
+  {
+    id: "owasp-chicago",
+    name: "Chicago",
+    region: "North America",
+    popularity: 75,
+    description: "Chicago chapter connecting Midwest security professionals.",
+  },
+  {
+    id: "owasp-denver",
+    name: "Denver",
+    region: "North America",
+    popularity: 68,
+    description: "Denver chapter promoting security in the Rocky Mountain region.",
+  },
+  {
+    id: "owasp-vancouver",
+    name: "Vancouver",
+    region: "North America",
+    popularity: 73,
+    description: "Vancouver chapter serving Western Canada.",
+  },
+  {
+    id: "owasp-atlanta",
+    name: "Atlanta",
+    region: "North America",
+    popularity: 70,
+    description: "Atlanta chapter connecting security professionals in the Southeast.",
+  },
+  
+  // Additional Europe Chapters
+  {
+    id: "owasp-madrid",
+    name: "Madrid",
+    region: "Europe",
+    popularity: 74,
+    description: "Madrid chapter promoting security across Spain.",
+    leaders: ["Maria Garcia"],
+  },
+  {
+    id: "owasp-stockholm",
+    name: "Stockholm",
+    region: "Europe",
+    popularity: 77,
+    description: "Stockholm chapter serving the Nordic security community.",
+  },
+  {
+    id: "owasp-dublin",
+    name: "Dublin",
+    region: "Europe",
+    popularity: 72,
+    description: "Dublin chapter connecting Irish security professionals.",
+  },
+  {
+    id: "owasp-munich",
+    name: "Munich",
+    region: "Europe",
+    popularity: 75,
+    description: "Munich chapter promoting security in Southern Germany.",
+  },
+  {
+    id: "owasp-zurich",
+    name: "Zurich",
+    region: "Europe",
+    popularity: 76,
+    description: "Zurich chapter serving the Swiss security community.",
+  },
+  
+  // Additional Asia Pacific Chapters
+  {
+    id: "owasp-mumbai",
+    name: "Mumbai",
+    region: "Asia Pacific",
+    popularity: 85,
+    description: "Mumbai chapter connecting security professionals in Western India.",
+    leaders: ["Raj Patel"],
+  },
+  {
+    id: "owasp-delhi",
+    name: "Delhi",
+    region: "Asia Pacific",
+    popularity: 83,
+    description: "Delhi chapter serving India's capital region.",
+  },
+  {
+    id: "owasp-hong-kong",
+    name: "Hong Kong",
+    region: "Asia Pacific",
+    popularity: 88,
+    description: "Hong Kong chapter connecting APAC financial security professionals.",
+  },
+  {
+    id: "owasp-melbourne",
+    name: "Melbourne",
+    region: "Asia Pacific",
+    popularity: 80,
+    description: "Melbourne chapter serving Southern Australia.",
+  },
+  {
+    id: "owasp-jakarta",
+    name: "Jakarta",
+    region: "Asia Pacific",
+    popularity: 71,
+    description: "Jakarta chapter promoting security in Indonesia.",
+  },
+  
+  // Additional Latin America Chapters
+  {
+    id: "owasp-santiago",
+    name: "Santiago",
+    region: "Latin America",
+    popularity: 66,
+    description: "Santiago chapter serving the Chilean security community.",
+  },
+  {
+    id: "owasp-bogota",
+    name: "Bogotá",
+    region: "Latin America",
+    popularity: 64,
+    description: "Bogotá chapter promoting security in Colombia.",
+  },
+  {
+    id: "owasp-lima",
+    name: "Lima",
+    region: "Latin America",
+    popularity: 62,
+    description: "Lima chapter serving the Peruvian security community.",
+  },
+  
+  // Additional Middle East & Africa Chapters
+  {
+    id: "owasp-cairo",
+    name: "Cairo",
+    region: "Middle East & Africa",
+    popularity: 69,
+    description: "Cairo chapter promoting security in Egypt and North Africa.",
+  },
+  {
+    id: "owasp-johannesburg",
+    name: "Johannesburg",
+    region: "Middle East & Africa",
+    popularity: 70,
+    description: "Johannesburg chapter serving South Africa's business hub.",
+  },
+  {
+    id: "owasp-riyadh",
+    name: "Riyadh",
+    region: "Middle East & Africa",
+    popularity: 73,
+    description: "Riyadh chapter connecting security professionals in Saudi Arabia.",
+  },
 ];
 
 // Function to fetch chapters from API (placeholder)

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import ChapterBubbles from "@/components/ChapterBubbles";
+import { useState, useEffect, useMemo } from "react";
+import ChapterGlobe from "@/components/ChapterGlobe";
 import ChapterDetailsSheet from "@/components/ChapterDetailsSheet";
 import RegionSelector, { Region } from "@/components/RegionSelector";
 import { Input } from "@/components/ui/input";
@@ -40,15 +40,17 @@ const Index = () => {
     detectRegion();
   }, []);
 
-  // Filter chapters by region and search query
-  const filteredChapters = chapters.filter((chapter) => {
-    const matchesRegion =
-      selectedRegion === "All Regions" || chapter.region === selectedRegion;
-    const matchesSearch = chapter.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    return matchesRegion && matchesSearch;
-  });
+  // Filter chapters by region and search query - memoized to prevent regeneration
+  const filteredChapters = useMemo(() => {
+    return chapters.filter((chapter) => {
+      const matchesRegion =
+        selectedRegion === "All Regions" || chapter.region === selectedRegion;
+      const matchesSearch = chapter.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      return matchesRegion && matchesSearch;
+    });
+  }, [chapters, selectedRegion, searchQuery]);
 
   const handleChapterClick = (chapter: Chapter) => {
     setSelectedChapter(chapter);
@@ -100,11 +102,10 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Bubble Visualization */}
+      {/* 3D Globe Visualization */}
       <main className="flex-1 relative overflow-hidden">
-        <ChapterBubbles
+        <ChapterGlobe
           data={filteredChapters}
-          searchQuery=""
           onChapterClick={handleChapterClick}
         />
       </main>
