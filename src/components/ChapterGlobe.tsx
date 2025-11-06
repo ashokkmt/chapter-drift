@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Sphere, Html } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls, Sphere, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { Chapter } from "@/types/owasp";
 
@@ -24,9 +24,13 @@ const REGION_COLORS: Record<string, string> = {
   "Middle East & Africa": "#F38181",
 };
 
+// Distribute points more evenly using Fibonacci sphere
 const getPositionOnSphere = (index: number, total: number, radius: number): [number, number, number] => {
-  const phi = Math.acos(-1 + (2 * index) / total);
-  const theta = Math.sqrt(total * Math.PI) * phi;
+  const goldenRatio = (1 + Math.sqrt(5)) / 2;
+  const angleIncrement = Math.PI * 2 * goldenRatio;
+  
+  const theta = angleIncrement * index;
+  const phi = Math.acos(1 - 2 * (index + 0.5) / total);
   
   return [
     radius * Math.cos(theta) * Math.sin(phi),
@@ -49,13 +53,36 @@ function ChapterNode({
   onClick: () => void;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const textRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
+  const { camera } = useThree();
 
   useFrame(() => {
-    if (meshRef.current && hovered) {
-      meshRef.current.scale.lerp(new THREE.Vector3(1.3, 1.3, 1.3), 0.1);
-    } else if (meshRef.current) {
-      meshRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
+    if (meshRef.current && textRef.current) {
+      // Calculate distance from camera (Z-axis in view space)
+      const worldPos = new THREE.Vector3();
+      meshRef.current.getWorldPosition(worldPos);
+      
+      // Transform to view space
+      const viewPos = worldPos.clone().project(camera);
+      const zDepth = viewPos.z; // -1 (front) to 1 (back)
+      
+      // Scale based on depth: front = 1.0, back = 0.15
+      const depthScale = THREE.MathUtils.lerp(1.0, 0.15, (zDepth + 1) / 2);
+      const finalScale = depthScale * (hovered ? 1.2 : 1);
+      
+      meshRef.current.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.1);
+      
+      // Text visibility and scale based on depth
+      const textVisible = zDepth < 0.3; // Only show text when reasonably front-facing
+      textRef.current.visible = textVisible;
+      if (textVisible) {
+        const textScale = Math.max(0.3, depthScale * 0.8);
+        textRef.current.scale.set(textScale, textScale, textScale);
+      }
+      
+      // Always face camera
+      textRef.current.quaternion.copy(camera.quaternion);
     }
   });
 
@@ -81,17 +108,26 @@ function ChapterNode({
         <meshStandardMaterial 
           color={color} 
           emissive={color}
-          emissiveIntensity={hovered ? 0.5 : 0.2}
+          emissiveIntensity={hovered ? 0.6 : 0.3}
+          transparent
+          opacity={0.9}
         />
       </mesh>
-      {hovered && (
-        <Html distanceFactor={15}>
-          <div className="bg-card/95 backdrop-blur-sm px-3 py-2 rounded-lg border border-border shadow-lg whitespace-nowrap pointer-events-none">
-            <p className="text-sm font-semibold text-foreground">{chapter.name}</p>
-            <p className="text-xs text-muted-foreground">{chapter.region}</p>
-          </div>
-        </Html>
-      )}
+      
+      {/* Chapter Name Text */}
+      <Text
+        ref={textRef}
+        position={[0, 0, size + 0.05]}
+        fontSize={0.35}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.02}
+        outlineColor="#000000"
+        font="/fonts/inter-bold.woff"
+      >
+        {chapter.name}
+      </Text>
     </group>
   );
 }
@@ -101,13 +137,13 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
 
   return (
     <>
-      {/* Main Globe */}
-      <Sphere ref={globeRef} args={[5, 64, 64]}>
+      {/* Main Globe - invisible but provides structure */}
+      <Sphere ref={globeRef} args={[5.2, 64, 64]}>
         <meshStandardMaterial
           color="#0a0a0a"
           wireframe
           transparent
-          opacity={0.1}
+          opacity={0.05}
         />
       </Sphere>
 
@@ -132,9 +168,10 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
       <OrbitControls
         enablePan={false}
         enableZoom={true}
-        minDistance={8}
-        maxDistance={20}
-        rotateSpeed={0.5}
+        minDistance={10}
+        maxDistance={25}
+        rotateSpeed={0.6}
+        zoomSpeed={0.8}
       />
     </>
   );
@@ -143,9 +180,10 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
 export default function ChapterGlobe({ data, onChapterClick }: Props) {
   // Memoize chapter nodes to prevent regeneration
   const chapterNodes = useMemo<ChapterNode[]>(() => {
-    const globeRadius = 6;
+    const globeRadius = 5.5;
     const sizeScale = (popularity: number) => {
-      return 0.15 + (popularity / 100) * 0.25;
+      // Larger base size for better visibility
+      return 0.3 + (popularity / 100) * 0.5;
     };
 
     return data.map((chapter, index) => ({
@@ -159,7 +197,7 @@ export default function ChapterGlobe({ data, onChapterClick }: Props) {
   return (
     <div className="w-full h-full bg-background">
       <Canvas
-        camera={{ position: [0, 0, 15], fov: 60 }}
+        camera={{ position: [0, 0, 14], fov: 50 }}
         gl={{ antialias: true }}
       >
         <color attach="background" args={["#0a0a0a"]} />
