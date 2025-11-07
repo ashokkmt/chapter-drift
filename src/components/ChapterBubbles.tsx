@@ -1,6 +1,8 @@
 import * as d3 from "d3";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Chapter } from "@/types/owasp";
+import { Button } from "@/components/ui/button";
+import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 
 interface Props {
   data: Chapter[];
@@ -17,9 +19,21 @@ interface Node extends Chapter {
 }
 
 
+// Region colors matching the design system
+const REGION_COLORS: Record<string, string> = {
+  "North America": "#FF6B35",
+  "Europe": "#4ECDC4",
+  "Asia Pacific": "#FF6B9D",
+  "Latin America": "#95E1D3",
+  "Middle East & Africa": "#F38181",
+};
+
 export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const minimapRef = useRef<SVGSVGElement | null>(null);
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current || data.length === 0) return;
@@ -44,49 +58,90 @@ export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Pr
       .domain(d3.extent(filteredData, (d) => d.popularity) as [number, number])
       .range([40, 120]); // Maintain good size even with 100+ circles
 
-    // Color palette matching the design
-    const colors = [
-      "hsl(var(--bubble-orange))",
-      "hsl(var(--bubble-blue))",
-      "hsl(var(--bubble-coral))",
-      "hsl(var(--bubble-teal))",
-    ];
+    // Get unique regions for clustering
+    const regions = Array.from(new Set(filteredData.map((d) => d.region)));
+    
+    // Calculate cluster centers based on regions
+    const clusterCenters: Record<string, { x: number; y: number }> = {};
+    const numRegions = regions.length;
+    const radius = Math.min(width, height) * 0.35;
+    regions.forEach((region, i) => {
+      const angle = (i / numRegions) * 2 * Math.PI;
+      clusterCenters[region] = {
+        x: width / 2 + radius * Math.cos(angle),
+        y: height / 2 + radius * Math.sin(angle),
+      };
+    });
 
-    const colorScale = d3
-      .scaleOrdinal(colors)
-      .domain(filteredData.map((d) => d.region));
+    // Setup nodes with initial positions near their cluster centers
+    const nodes: Node[] = filteredData.map((d) => {
+      const center = clusterCenters[d.region];
+      return {
+        ...d,
+        radius: sizeScale(d.popularity),
+        x: center.x + (Math.random() - 0.5) * 100,
+        y: center.y + (Math.random() - 0.5) * 100,
+      };
+    });
 
-    // Setup nodes with initial random positions
-    const nodes: Node[] = filteredData.map((d) => ({
-      ...d,
-      radius: sizeScale(d.popularity),
-      x: Math.random() * width,
-      y: Math.random() * height,
-    }));
-
-    // Setup force simulation - optimized for 100+ circles
+    // Setup force simulation with clustering
     const simulation = d3
       .forceSimulation(nodes)
-      .force("x", d3.forceX(width / 2).strength(0.05))
-      .force("y", d3.forceY(height / 2).strength(0.05))
-      .force("charge", d3.forceManyBody().strength(-2)) // Slight repulsion
+      .force(
+        "x",
+        d3.forceX<Node>((d) => clusterCenters[d.region].x).strength(0.1)
+      )
+      .force(
+        "y",
+        d3.forceY<Node>((d) => clusterCenters[d.region].y).strength(0.1)
+      )
+      .force("charge", d3.forceManyBody().strength(-5)) // Repulsion
       .force(
         "collide",
         d3.forceCollide<Node>()
           .radius((d) => d.radius + 5)
-          .iterations(2) // Fewer iterations for better performance with many nodes
+          .iterations(2)
       )
-      .alphaDecay(0.015) // Slower decay for smoother settling
-      .velocityDecay(0.4) // Add damping for smoother movement
+      .alphaDecay(0.015)
+      .velocityDecay(0.4)
       .on("tick", ticked);
 
+    // Setup zoom behavior
+    const g = svg.append("g").attr("class", "zoom-group");
+    
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.5, 3])
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform);
+        setZoomLevel(event.transform.k);
+        updateMinimap(event.transform);
+      });
+
+    svg.attr("viewBox", `0 0 ${width} ${height}`).call(zoom);
+    zoomRef.current = zoom;
+
+    // Add region labels
+    const regionLabels = g
+      .selectAll<SVGTextElement, string>("text.region-label")
+      .data(regions)
+      .join("text")
+      .attr("class", "region-label")
+      .attr("x", (d) => clusterCenters[d].x)
+      .attr("y", (d) => clusterCenters[d].y - radius * 0.7)
+      .attr("text-anchor", "middle")
+      .attr("fill", "hsl(var(--muted-foreground))")
+      .attr("font-size", "18")
+      .attr("font-weight", "700")
+      .attr("opacity", 0.6)
+      .text((d) => d);
+
     // Create node groups
-    const nodeGroup = svg
-      .attr("viewBox", `0 0 ${width} ${height}`)
-      .append("g")
-      .selectAll<SVGGElement, Node>("g")
+    const nodeGroup = g
+      .selectAll<SVGGElement, Node>("g.node")
       .data(nodes)
       .join("g")
+      .attr("class", "node")
       .style("cursor", "grab")
       .call(
         d3
@@ -100,7 +155,7 @@ export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Pr
     nodeGroup
       .append("circle")
       .attr("r", (d) => d.radius)
-      .attr("fill", (d) => colorScale(d.region) as string)
+      .attr("fill", (d) => REGION_COLORS[d.region] || "#4ECDC4")
       .attr("fill-opacity", 0.85)
       .attr("stroke", "#111")
       .attr("stroke-width", 2)
@@ -138,7 +193,84 @@ export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Pr
 
     function ticked() {
       nodeGroup.attr("transform", (d) => `translate(${d.x},${d.y})`);
+      updateMinimap();
     }
+
+    // Setup minimap
+    function setupMinimap() {
+      if (!minimapRef.current) return;
+
+      const minimapSvg = d3.select(minimapRef.current);
+      minimapSvg.selectAll("*").remove();
+
+      const minimapWidth = 200;
+      const minimapHeight = 150;
+      const scale = Math.min(minimapWidth / width, minimapHeight / height);
+
+      minimapSvg.attr("viewBox", `0 0 ${minimapWidth} ${minimapHeight}`);
+
+      // Draw minimap background
+      minimapSvg
+        .append("rect")
+        .attr("width", minimapWidth)
+        .attr("height", minimapHeight)
+        .attr("fill", "hsl(var(--background))")
+        .attr("stroke", "hsl(var(--border))")
+        .attr("stroke-width", 1)
+        .attr("opacity", 0.9);
+
+      // Draw minimap nodes
+      minimapSvg
+        .selectAll("circle.minimap-node")
+        .data(nodes)
+        .join("circle")
+        .attr("class", "minimap-node")
+        .attr("cx", (d) => d.x * scale)
+        .attr("cy", (d) => d.y * scale)
+        .attr("r", (d) => d.radius * scale * 0.5)
+        .attr("fill", (d) => REGION_COLORS[d.region] || "#4ECDC4")
+        .attr("opacity", 0.7);
+
+      // Draw viewport indicator
+      minimapSvg
+        .append("rect")
+        .attr("class", "viewport-indicator")
+        .attr("fill", "none")
+        .attr("stroke", "hsl(var(--primary))")
+        .attr("stroke-width", 2);
+    }
+
+    function updateMinimap(transform?: d3.ZoomTransform) {
+      if (!minimapRef.current) return;
+
+      const minimapSvg = d3.select(minimapRef.current);
+      const minimapWidth = 200;
+      const minimapHeight = 150;
+      const scale = Math.min(minimapWidth / width, minimapHeight / height);
+
+      // Update minimap nodes positions
+      minimapSvg
+        .selectAll<SVGCircleElement, Node>("circle.minimap-node")
+        .attr("cx", (d) => d.x * scale)
+        .attr("cy", (d) => d.y * scale);
+
+      // Update viewport indicator
+      if (transform) {
+        const viewportWidth = width / transform.k;
+        const viewportHeight = height / transform.k;
+        const viewportX = -transform.x / transform.k;
+        const viewportY = -transform.y / transform.k;
+
+        minimapSvg
+          .select<SVGRectElement>(".viewport-indicator")
+          .attr("x", viewportX * scale)
+          .attr("y", viewportY * scale)
+          .attr("width", viewportWidth * scale)
+          .attr("height", viewportHeight * scale);
+      }
+    }
+
+    setupMinimap();
 
     function dragstarted(event: d3.D3DragEvent<SVGGElement, Node, Node>) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -165,9 +297,89 @@ export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Pr
     };
   }, [data, searchQuery]);
 
+  const handleZoomIn = () => {
+    if (svgRef.current && zoomRef.current) {
+      d3.select(svgRef.current)
+        .transition()
+        .duration(300)
+        .call(zoomRef.current.scaleBy, 1.3);
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (svgRef.current && zoomRef.current) {
+      d3.select(svgRef.current)
+        .transition()
+        .duration(300)
+        .call(zoomRef.current.scaleBy, 0.7);
+    }
+  };
+
+  const handleResetZoom = () => {
+    if (svgRef.current && zoomRef.current) {
+      d3.select(svgRef.current)
+        .transition()
+        .duration(300)
+        .call(zoomRef.current.transform, d3.zoomIdentity);
+    }
+  };
+
   return (
-    <div ref={containerRef} className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full relative">
       <svg ref={svgRef} className="w-full h-full" />
+      
+      {/* Zoom Controls */}
+      <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-10">
+        <Button
+          size="icon"
+          variant="secondary"
+          onClick={handleZoomIn}
+          className="bg-card/90 backdrop-blur-sm hover:bg-card shadow-lg"
+          title="Zoom In"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="secondary"
+          onClick={handleZoomOut}
+          className="bg-card/90 backdrop-blur-sm hover:bg-card shadow-lg"
+          title="Zoom Out"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="secondary"
+          onClick={handleResetZoom}
+          className="bg-card/90 backdrop-blur-sm hover:bg-card shadow-lg"
+          title="Reset Zoom"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Zoom Level Indicator */}
+      <div className="absolute bottom-6 left-6 z-10">
+        <div className="bg-card/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg border border-border">
+          <span className="text-sm font-medium text-foreground">
+            {Math.round(zoomLevel * 100)}%
+          </span>
+        </div>
+      </div>
+
+      {/* Mini-map */}
+      <div className="absolute top-4 right-4 z-10">
+        <div className="bg-card/90 backdrop-blur-sm rounded-lg shadow-lg border border-border p-2">
+          <div className="text-xs font-medium text-muted-foreground mb-1 px-1">
+            Overview
+          </div>
+          <svg
+            ref={minimapRef}
+            className="w-[200px] h-[150px] rounded"
+          />
+        </div>
+      </div>
     </div>
   );
 }
