@@ -74,22 +74,24 @@ function ChapterNode({
   });
 
   // Convert size (used for 3D) to pixel size for 2D circle
-  const pixelSize = size * 80; // Base pixel size
+  const pixelSize = size * 140; // Larger base pixel size
 
   return (
     <group ref={groupRef} position={position}>
       <Html
         center
-        distanceFactor={8}
+        distanceFactor={5}
         style={{
           opacity: scale > 0.4 ? 1 : scale / 0.4,
-          pointerEvents: scale > 0.4 ? 'auto' : 'none',
+          pointerEvents: 'auto',
         }}
       >
         <div
           onClick={(e) => {
             e.stopPropagation();
-            onClick();
+            if (onClick) {
+              onClick();
+            }
           }}
           onMouseEnter={() => {
             setHovered(true);
@@ -182,8 +184,8 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
         ref={controlsRef}
         enablePan={false}
         enableZoom={true}
-        minDistance={9}
-        maxDistance={22}
+        minDistance={6}
+        maxDistance={12}
         rotateSpeed={0.5}
         zoomSpeed={0.7}
         onStart={() => setIsInteracting(true)}
@@ -198,8 +200,8 @@ export default function ChapterGlobe({ data, onChapterClick }: Props) {
   const chapterNodes = useMemo<ChapterNode[]>(() => {
     const globeRadius = 5.2;
     const sizeScale = (popularity: number) => {
-      // Size range for 2D circles
-      return 0.8 + (popularity / 100) * 0.8;
+      // Larger size range for 2D circles
+      return 1.0 + (popularity / 100) * 1.2;
     };
 
     return data.map((chapter, index) => ({
@@ -213,7 +215,7 @@ export default function ChapterGlobe({ data, onChapterClick }: Props) {
   return (
     <div className="w-full h-full bg-background">
       <Canvas
-        camera={{ position: [0, 0, 13], fov: 55 }}
+        camera={{ position: [0, 0, 8], fov: 60 }}
         gl={{ antialias: true }}
       >
         <color attach="background" args={["#0a0a0a"]} />
