@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Sphere, Text } from "@react-three/drei";
+import { OrbitControls, Sphere, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { Chapter } from "@/types/owasp";
 
@@ -52,84 +52,77 @@ function ChapterNode({
   size: number;
   onClick: () => void;
 }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const textRef = useRef<any>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const { camera } = useThree();
+  const [scale, setScale] = useState(1);
 
   useFrame(() => {
-    if (meshRef.current) {
-      // Calculate distance from camera (Z-axis in view space)
+    if (groupRef.current) {
+      // Calculate distance from camera to determine visibility/scale
       const worldPos = new THREE.Vector3();
-      meshRef.current.getWorldPosition(worldPos);
+      groupRef.current.getWorldPosition(worldPos);
       
-      // Transform to view space
+      // Calculate if this node is facing the camera
       const viewPos = worldPos.clone().project(camera);
       const zDepth = viewPos.z; // -1 (front) to 1 (back)
       
-      // Scale based on depth: front = 1.0, back = 0.2
-      const depthScale = THREE.MathUtils.lerp(1.0, 0.2, (zDepth + 1) / 2);
-      const finalScale = depthScale * (hovered ? 1.15 : 1);
-      
-      meshRef.current.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 0.1);
-      
-      // Text visibility and scale based on depth
-      if (textRef.current) {
-        const textVisible = zDepth < 0.4;
-        textRef.current.visible = textVisible;
-        if (textVisible) {
-          const textScale = depthScale * 1;
-          textRef.current.scale.set(textScale, textScale, textScale);
-        }
-        
-        // Always face camera
-        textRef.current.quaternion.copy(camera.quaternion);
-      }
+      // Scale based on depth: front = 1.0, back = 0.3
+      const depthScale = THREE.MathUtils.lerp(1.0, 0.3, (zDepth + 1) / 2);
+      setScale(depthScale);
     }
   });
 
+  // Convert size (used for 3D) to pixel size for 2D circle
+  const pixelSize = size * 80; // Base pixel size
+
   return (
-    <group position={position}>
-      <mesh
-        ref={meshRef}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick();
-        }}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          document.body.style.cursor = "default";
+    <group ref={groupRef} position={position}>
+      <Html
+        center
+        distanceFactor={8}
+        style={{
+          opacity: scale > 0.4 ? 1 : scale / 0.4,
+          pointerEvents: scale > 0.4 ? 'auto' : 'none',
         }}
       >
-        <sphereGeometry args={[size, 32, 32]} />
-        <meshStandardMaterial 
-          color={color} 
-          emissive={color}
-          emissiveIntensity={hovered ? 0.5 : 0.25}
-          transparent
-          opacity={0.85}
-        />
-      </mesh>
-      
-      {/* Chapter Name Text - centered inside circle */}
-      <Text
-        ref={textRef}
-        position={[0, 0, 0.1]}
-        fontSize={0.5}
-        color="white"
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.03}
-        outlineColor="#000000"
-        maxWidth={size * 1.8}
-      >
-        {chapter.name}
-      </Text>
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          onMouseEnter={() => {
+            setHovered(true);
+            document.body.style.cursor = "pointer";
+          }}
+          onMouseLeave={() => {
+            setHovered(false);
+            document.body.style.cursor = "default";
+          }}
+          style={{
+            width: `${pixelSize * scale}px`,
+            height: `${pixelSize * scale}px`,
+            borderRadius: "50%",
+            backgroundColor: color,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            fontWeight: "600",
+            fontSize: `${Math.max(12, pixelSize * scale * 0.18)}px`,
+            textAlign: "center",
+            padding: "10px",
+            cursor: "pointer",
+            transition: "transform 0.2s",
+            transform: hovered ? "scale(1.1)" : "scale(1)",
+            boxShadow: hovered 
+              ? `0 0 20px ${color}80` 
+              : `0 4px 10px rgba(0,0,0,0.3)`,
+          }}
+        >
+          {chapter.name}
+        </div>
+      </Html>
     </group>
   );
 }
@@ -143,7 +136,7 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
   // Auto-rotation when not interacting or hovering
   useFrame((state, delta) => {
     if (globeRef.current && !isInteracting && !isHovering) {
-      globeRef.current.rotation.y += delta * 0.05; // Very slow rotation
+      globeRef.current.rotation.y += delta * 0.1; // Slow rotation
     }
   });
 
@@ -203,10 +196,10 @@ function Globe({ chapters, onChapterClick }: { chapters: ChapterNode[], onChapte
 export default function ChapterGlobe({ data, onChapterClick }: Props) {
   // Memoize chapter nodes to prevent regeneration
   const chapterNodes = useMemo<ChapterNode[]>(() => {
-    const globeRadius = 5;
+    const globeRadius = 5.2;
     const sizeScale = (popularity: number) => {
-      // Much larger circles for better visibility
-      return 0.6 + (popularity / 100) * 0.6;
+      // Size range for 2D circles
+      return 0.8 + (popularity / 100) * 0.8;
     };
 
     return data.map((chapter, index) => ({
