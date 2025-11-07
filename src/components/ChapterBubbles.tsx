@@ -38,11 +38,11 @@ export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Pr
 
     if (filteredData.length === 0) return;
 
-    // Define size scale based on popularity
+    // Define size scale based on popularity - optimized for many circles
     const sizeScale = d3
       .scaleSqrt()
       .domain(d3.extent(filteredData, (d) => d.popularity) as [number, number])
-      .range([30, 100]);
+      .range([40, 120]); // Maintain good size even with 100+ circles
 
     // Color palette matching the design
     const colors = [
@@ -64,17 +64,20 @@ export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Pr
       y: Math.random() * height,
     }));
 
-    // Setup force simulation
+    // Setup force simulation - optimized for 100+ circles
     const simulation = d3
       .forceSimulation(nodes)
-      .force("x", d3.forceX(width / 2).strength(0.03))
-      .force("y", d3.forceY(height / 2).strength(0.03))
-      .force("charge", d3.forceManyBody().strength(0))
+      .force("x", d3.forceX(width / 2).strength(0.05))
+      .force("y", d3.forceY(height / 2).strength(0.05))
+      .force("charge", d3.forceManyBody().strength(-2)) // Slight repulsion
       .force(
         "collide",
-        d3.forceCollide<Node>().radius((d) => d.radius + 8).iterations(3)
+        d3.forceCollide<Node>()
+          .radius((d) => d.radius + 5)
+          .iterations(2) // Fewer iterations for better performance with many nodes
       )
-      .alphaDecay(0.02)
+      .alphaDecay(0.015) // Slower decay for smoother settling
+      .velocityDecay(0.4) // Add damping for smoother movement
       .on("tick", ticked);
 
     // Create node groups
@@ -107,17 +110,31 @@ export default function ChapterBubbles({ data, searchQuery, onChapterClick }: Pr
         onChapterClick(d);
       });
 
-    // Add text labels
+    // Add text labels with better sizing for many circles
     nodeGroup
       .append("text")
       .text((d) => d.name)
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
       .attr("fill", "white")
-      .attr("font-size", (d) => Math.max(12, d.radius / 4))
+      .attr("font-size", (d) => Math.max(14, d.radius / 3.5)) // Better text sizing
       .attr("font-weight", "600")
       .attr("pointer-events", "none")
-      .style("user-select", "none");
+      .style("user-select", "none")
+      .each(function(d) {
+        const text = d3.select(this);
+        const words = d.name.split(/\s+/);
+        // Wrap text if circle is large and name is long
+        if (d.radius > 60 && words.length > 2) {
+          text.text("");
+          words.forEach((word, i) => {
+            text.append("tspan")
+              .attr("x", 0)
+              .attr("dy", i === 0 ? 0 : "1.1em")
+              .text(word);
+          });
+        }
+      });
 
     function ticked() {
       nodeGroup.attr("transform", (d) => `translate(${d.x},${d.y})`);

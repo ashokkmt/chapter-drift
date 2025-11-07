@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import ChapterGlobe from "@/components/ChapterGlobe";
+import ChapterBubbles from "@/components/ChapterBubbles";
 import ChapterDetailsSheet from "@/components/ChapterDetailsSheet";
 import RegionSelector, { Region } from "@/components/RegionSelector";
 import { Input } from "@/components/ui/input";
@@ -102,10 +102,11 @@ const Index = () => {
         </div>
       </header>
 
-      {/* 3D Globe Visualization */}
+      {/* 2D Bubble Visualization */}
       <main className="flex-1 relative overflow-hidden">
-        <ChapterGlobe
+        <ChapterBubbles
           data={filteredChapters}
+          searchQuery={searchQuery}
           onChapterClick={handleChapterClick}
         />
       </main>
